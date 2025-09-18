@@ -2,7 +2,8 @@
  *	Seth Ek
  *	Networks
  *	Chatbot V1
- *	Information used in project from: https://pkg.go.dev/
+ *	Information used in project from: 
+ * https://pkg.go.dev/
 ***********************************************************************/
 package main
 
@@ -20,6 +21,36 @@ const (
 	SIZE_OF_BUFF = 1024
 )
 
+func login(conn net.Conn, command string) bool {
+	// Send the login message
+	message := []byte(command)
+	_, err := conn.Write(message)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	// Listen for the server response
+	buffer := make([]byte,SIZE_OF_BUFF)
+	bytesRead, err := conn.Read(buffer)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	// Parse response
+	response := buffer[0:bytesRead]
+	data := string(response)
+	
+	// Validate login
+	if data != "1" {
+		fmt.Println("> Login unsuccessful.")
+		return false
+	}
+	fmt.Println("You are logged in!")
+	return true
+}
+
 func start(conn net.Conn) {
 	fmt.Println("******************************************************************")
 	fmt.Print("Hello! Welcome to Seth Ek's chatbot V1.\n\nAvailable commands:\n")
@@ -28,25 +59,38 @@ func start(conn net.Conn) {
 	fmt.Println("******************************************************************")
 
 	reader := bufio.NewReader(os.Stdin)
+	loggedIn := false
 
 	// Wait for input from user
 	for {
 		fmt.Print("> ")
-		input, _ := reader.ReadString('\n')			// Get input 
-		inputString := strings.TrimSpace(input)		// Trim whitespace here
-		command := strings.Fields(inputString)		// strings.Fields creates a slice of strings seperated by a space
+		input, _ := reader.ReadString('\n')     	// Get input
+		inputString := strings.TrimSpace(input) 	// Trim whitespace here
+		command := strings.Fields(inputString)  	// strings.Fields creates a slice of strings seperated by a space
 
-		// Validate the command and its args
-		
-		
 		// Execute the command
 		switch command[0] {
 		case "login":
-			fmt.Println("> login command chosen")
+			if len(command) == 3 {
+				loggedIn = login(conn, inputString)
+			} else {
+				fmt.Println("> You must provided a username and password.")
+			}
 		case "newuser":
 			fmt.Println("> newuser command chosen")
 		case "send":
-			fmt.Println("> send command chosen")
+			if loggedIn {
+				fmt.Println("> send command chosen")
+			} else {
+				fmt.Println("> You must login before sending a message.")
+			}
+		case "logout":
+			if loggedIn {
+				fmt.Println("> See you next time!")
+				return
+			} else {
+				fmt.Println("> You must login before logging out.")
+			}
 		default:
 			fmt.Println("> Invalid command")
 		}
@@ -57,14 +101,7 @@ func main() {
 	// Connect to the socket via tcp
 	conn, err := net.Dial("tcp", SOCKET)
 	if err != nil {
-		log.Fatal(err) // This will kill thr program 
-	}
-
-	// Write a basic message
-	message := []byte("Hello from the client!")
-	_, err = conn.Write(message)
-	if err != nil {
-		log.Println(err)
+		log.Fatal(err) // This will kill thr program
 	}
 
 	// Run the app
