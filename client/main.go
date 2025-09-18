@@ -1,11 +1,17 @@
+/***********************************************************************
+ *	Seth Ek
+ *	Networks
+ *	Chatbot V1
+ *	Information used in project from: https://pkg.go.dev/
+***********************************************************************/
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"log"
 	"net"
-	"fmt"
 	"os"
-	"bufio"
 	"strings"
 )
 
@@ -26,9 +32,24 @@ func start(conn net.Conn) {
 	// Wait for input from user
 	for {
 		fmt.Print("> ")
-		input, _ := reader.ReadString('\n')
-		command := strings.TrimSpace(input)
-		fmt.Println("> Your command: " + command)
+		input, _ := reader.ReadString('\n')			// Get input 
+		inputString := strings.TrimSpace(input)		// Trim whitespace here
+		command := strings.Fields(inputString)		// strings.Fields creates a slice of strings seperated by a space
+
+		// Validate the command and its args
+		
+		
+		// Execute the command
+		switch command[0] {
+		case "login":
+			fmt.Println("> login command chosen")
+		case "newuser":
+			fmt.Println("> newuser command chosen")
+		case "send":
+			fmt.Println("> send command chosen")
+		default:
+			fmt.Println("> Invalid command")
+		}
 	}
 }
 
@@ -36,7 +57,7 @@ func main() {
 	// Connect to the socket via tcp
 	conn, err := net.Dial("tcp", SOCKET)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err) // This will kill thr program 
 	}
 
 	// Write a basic message

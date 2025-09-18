@@ -2,7 +2,7 @@
  *	Seth Ek
  *	Networks
  *	Chatbot V1
- *	Informatin used in poject from: https://pkg.go.dev/net
+ *	Information used in project from: https://pkg.go.dev/
 ***********************************************************************/
 package main
 
