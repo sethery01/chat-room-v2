@@ -2,7 +2,7 @@
  *	Seth Ek
  *	Networks
  *	Chatbot V1
- *	Information used in project from: 
+ *	Information used in project from:
  * https://pkg.go.dev/
 ***********************************************************************/
 package main
@@ -29,7 +29,7 @@ func sendAndReceive(conn net.Conn, message []byte) string {
 	}
 
 	// Listen for the server response
-	buffer := make([]byte,SIZE_OF_BUFF)
+	buffer := make([]byte, SIZE_OF_BUFF)
 	bytesRead, err := conn.Read(buffer)
 	if err != nil {
 		log.Println(err)
@@ -46,7 +46,7 @@ func sendAndReceive(conn net.Conn, message []byte) string {
 func login(conn net.Conn, command string) bool {
 	// // Send the login message
 	message := []byte(command)
-	data := sendAndReceive(conn,message)
+	data := sendAndReceive(conn, message)
 
 	// Validate login
 	if data != "1" {
@@ -71,8 +71,8 @@ func logout(conn net.Conn) bool {
 func newuser(conn net.Conn, command string) bool {
 	// Send the newuser message
 	message := []byte(command)
-	data := sendAndReceive(conn,message)
-	
+	data := sendAndReceive(conn, message)
+
 	// Validate login
 	if data != "1" {
 		fmt.Println("> Account creation unsuccessful.")
@@ -85,7 +85,7 @@ func newuser(conn net.Conn, command string) bool {
 func send(conn net.Conn, command string) {
 	// Send the message to be echoed to the user
 	message := []byte(command)
-	data := sendAndReceive(conn,message)
+	data := sendAndReceive(conn, message)
 	fmt.Println("> " + data)
 }
 
@@ -102,9 +102,9 @@ func start(conn net.Conn) {
 	// Wait for input from user
 	for {
 		fmt.Print("> ")
-		input, _ := reader.ReadString('\n')     	// Get input
-		inputString := strings.TrimSpace(input) 	// Trim whitespace here
-		command := strings.Fields(inputString)  	// strings.Fields creates a slice of strings seperated by a space
+		input, _ := reader.ReadString('\n')     // Get input
+		inputString := strings.TrimSpace(input) // Trim whitespace here
+		command := strings.Fields(inputString)  // strings.Fields creates a slice of strings seperated by a space
 
 		// Execute the command
 		switch command[0] {
@@ -155,6 +155,7 @@ func main() {
 	// Connect to the socket via tcp
 	conn, err := net.Dial("tcp", SOCKET)
 	if err != nil {
+		fmt.Println("Please start the server first.")
 		log.Fatal(err) // This will kill thr program
 	}
 
