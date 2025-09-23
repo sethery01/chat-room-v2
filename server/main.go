@@ -47,11 +47,10 @@ func validateUser(username, password string) bool {
 		user := strings.Split(line,",")
 		user[0] = strings.TrimSpace(user[0])
 		user[1] = strings.TrimSpace(user[1])
-		log.Println("User in validate func:", user[0], user[1])
 		
 		// Check if username and password match
 		if user[0] == username && user[1] == password {
-			log.Println("Returning true")
+			log.Println("User logged in as: " + username)
 			return true
 		}
 	}
@@ -61,11 +60,40 @@ func validateUser(username, password string) bool {
 func login(command []string) bool {
 	username := command[1]
 	password := command[2]
-	log.Println(username,password)
 	return validateUser(username,password)
 }
 
+func newuser(command []string) bool {
+	username := command[1]
+	password := command[2]
+	
+	userExists := validateUser(username, password)
+	if userExists {
+		log.Printf("User %s already exists.\n",username)
+		return false
+	} else {
+		// Open the users file for appending
+		file, err := os.OpenFile("users.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+		defer file.Close()	// Close file after func exit
+
+		// Write the new user to the EOF
+		user := fmt.Sprintf("\n(%s, %s)",username,password)
+		_, err = file.Write([]byte(user))
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+	}
+	log.Print("User added: " + username)
+	return true
+}
+
 func handleConnection(conn net.Conn) {
+	log.Println("New connection from: " + conn.RemoteAddr().String())
 	defer conn.Close() // Close connection upon function exit
 	loggedIn := false
 
@@ -95,22 +123,29 @@ func handleConnection(conn net.Conn) {
 			}
 			sendMessage(conn,message)
 		case "newuser":
-			fmt.Println("> newuser command chosen")
+			created := newuser(command)
+			var message []byte
+			if created {
+				message = []byte("1")
+			} else {
+				message = []byte("0")
+			}
+			sendMessage(conn,message)
 		case "send":
 			if loggedIn {
-				fmt.Println("> send command chosen")
+				log.Println("send command chosen")
 			} else {
-				fmt.Println("> You must login before sending a message.")
+				log.Println("You must login before sending a message.")
 			}
 		case "logout":
 			if loggedIn {
-				fmt.Println("> See you next time!")
+				log.Println("Terminating connection: " + conn.RemoteAddr().String())
 				return
 			} else {
-				fmt.Println("> You must login before logging out.")
+				log.Println("User chose logout but nobody is logged in.")
 			}
 		default:
-			fmt.Println("> Invalid command")
+			log.Println("Invalid command")
 		}
 	}
 }
