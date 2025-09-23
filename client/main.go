@@ -21,13 +21,11 @@ const (
 	SIZE_OF_BUFF = 1024
 )
 
-func login(conn net.Conn, command string) bool {
-	// Send the login message
-	message := []byte(command)
+func sendAndReceive(conn net.Conn, message []byte) string {
 	_, err := conn.Write(message)
 	if err != nil {
 		log.Println(err)
-		return false
+		return "0"
 	}
 
 	// Listen for the server response
@@ -35,13 +33,21 @@ func login(conn net.Conn, command string) bool {
 	bytesRead, err := conn.Read(buffer)
 	if err != nil {
 		log.Println(err)
-		return false
+		return "0"
 	}
 
 	// Parse response
 	response := buffer[0:bytesRead]
 	data := string(response)
-	
+
+	return data
+}
+
+func login(conn net.Conn, command string) bool {
+	// // Send the login message
+	message := []byte(command)
+	data := sendAndReceive(conn,message)
+
 	// Validate login
 	if data != "1" {
 		fmt.Println("> Login unsuccessful.")
@@ -65,23 +71,7 @@ func logout(conn net.Conn) bool {
 func newuser(conn net.Conn, command string) bool {
 	// Send the newuser message
 	message := []byte(command)
-	_, err := conn.Write(message)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-
-	// Listen for the server response
-	buffer := make([]byte,SIZE_OF_BUFF)
-	bytesRead, err := conn.Read(buffer)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-
-	// Parse response
-	response := buffer[0:bytesRead]
-	data := string(response)
+	data := sendAndReceive(conn,message)
 	
 	// Validate login
 	if data != "1" {
@@ -90,6 +80,13 @@ func newuser(conn net.Conn, command string) bool {
 	}
 	fmt.Println("> New account created! Please login.")
 	return true
+}
+
+func send(conn net.Conn, command string) {
+	// Send the message to be echoed to the user
+	message := []byte(command)
+	data := sendAndReceive(conn,message)
+	fmt.Println("> " + data)
 }
 
 func start(conn net.Conn) {
@@ -130,10 +127,12 @@ func start(conn net.Conn) {
 				newuser(conn, inputString)
 			}
 		case "send":
-			if loggedIn {
-				fmt.Println("> send command chosen")
-			} else {
+			if len(command) < 2 {
+				fmt.Println("> You must include a message.")
+			} else if !loggedIn {
 				fmt.Println("> You must login before sending a message.")
+			} else {
+				send(conn, inputString)
 			}
 		case "logout":
 			if loggedIn {

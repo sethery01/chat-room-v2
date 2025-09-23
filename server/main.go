@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	IP           = "127.0.0.1"
-	PORT         = ":10740"
+	SOCKET       = "127.0.0.1:10740"
 	SIZE_OF_BUFF = 1024
 )
 
@@ -96,6 +95,7 @@ func handleConnection(conn net.Conn) {
 	log.Println("New connection from: " + conn.RemoteAddr().String())
 	defer conn.Close() // Close connection upon function exit
 	loggedIn := false
+	activeUser := ""
 
 	for {
 		// Read in data sent by the connection
@@ -117,6 +117,7 @@ func handleConnection(conn net.Conn) {
 			loggedIn = login(command)
 			var message []byte
 			if loggedIn {
+				activeUser = command[1]
 				message = []byte("1")
 			} else {
 				message = []byte("0")
@@ -133,9 +134,12 @@ func handleConnection(conn net.Conn) {
 			sendMessage(conn,message)
 		case "send":
 			if loggedIn {
-				log.Println("send command chosen")
+				data = data[5:]
+				message := []byte(fmt.Sprintf("%s: %s",activeUser,data))
+				log.Println(string(message))
+				sendMessage(conn, message)
 			} else {
-				log.Println("You must login before sending a message.")
+				log.Println("User is not logged in.")
 			}
 		case "logout":
 			if loggedIn {
@@ -152,13 +156,13 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	// Start the server
-	ln, err := net.Listen("tcp", PORT)
+	ln, err := net.Listen("tcp", SOCKET)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 	defer ln.Close() // Close upon exiting main
-	fmt.Println("Server is listening on port ", PORT)
+	fmt.Println("Server is listening on " + ln.Addr().String())
 
 	// Listen for and handle connections
 	for {
