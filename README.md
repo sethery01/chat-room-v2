@@ -14,6 +14,6 @@ go run server/main.go
 
 ### Terminal 2 (Client):
 ```bash
-cd chat-room-v1go 
-run client/main.go
+cd chat-room-v1
+go run client/main.go
 ```
