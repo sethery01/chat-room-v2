@@ -2,7 +2,9 @@
  *	Seth Ek
  *	Networks
  *	Chatbot V1
+ * 	October 24, 2025
  *	Information used in project from: https://pkg.go.dev/
+ *	server/main.go
 ***********************************************************************/
 package main
 

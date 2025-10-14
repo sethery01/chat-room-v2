@@ -2,8 +2,9 @@
  *	Seth Ek
  *	Networks
  *	Chatbot V1
- *	Information used in project from:
- * https://pkg.go.dev/
+ * 	October 24, 2025
+ *	Information used in project from: https://pkg.go.dev/
+ *	client/main.go
 ***********************************************************************/
 package main
 
@@ -131,6 +132,8 @@ func start(conn net.Conn) {
 				fmt.Println("> You must include a message.")
 			} else if !loggedIn {
 				fmt.Println("> You must login before sending a message.")
+			} else if len(command[1]) > 256 {
+				fmt.Println("> Your message must be 1-256 characters long.")
 			} else {
 				send(conn, inputString)
 			}
