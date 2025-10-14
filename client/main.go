@@ -3,8 +3,9 @@
  *	Networks
  *	Chatbot V1
  * 	October 24, 2025
- *	Information used in project from: https://pkg.go.dev/
- *	client/main.go
+ *	Go net library: 	https://pkg.go.dev/net
+ * 	Go sync library: 	https://pkg.go.dev/sync
+ *	server/main.go
 ***********************************************************************/
 package main
 
@@ -44,18 +45,23 @@ func sendAndReceive(conn net.Conn, message []byte) string {
 	return data
 }
 
-func login(conn net.Conn, command string) bool {
+func login(conn net.Conn, command string, user string) bool {
 	// // Send the login message
 	message := []byte(command)
 	data := sendAndReceive(conn, message)
-
+	
 	// Validate login
-	if data != "1" {
-		fmt.Println("> Login unsuccessful.")
+	switch data {
+	case "1":
+		fmt.Println("> Login unsuccessful. User: " + user + " doesn't exist.") 
 		return false
+	case "2":
+		fmt.Println("> Login unsuccessful. " + user + " is already logged in.")
+		return false
+	default:
+		fmt.Println("> You are logged in!")
+		return true
 	}
-	fmt.Println("> You are logged in!")
-	return true
 }
 
 func logout(conn net.Conn) bool {
@@ -92,7 +98,7 @@ func send(conn net.Conn, command string) {
 
 func start(conn net.Conn) {
 	fmt.Println("******************************************************************")
-	fmt.Print("Hello! Welcome to Seth Ek's chatbot V1.\n\nAvailable commands:\n")
+	fmt.Print("Hello! Welcome to Seth Ek's chatbot V2.\n\nAvailable commands:\n")
 	fmt.Print("login \"UserID\" \"Password\"\nnewuser \"UserID\" \"Password\"\nsend \"message\"\nlogout\n")
 	fmt.Print("\nPlease enter commands as shown above. You must begin with login.\n")
 	fmt.Println("******************************************************************")
@@ -113,7 +119,7 @@ func start(conn net.Conn) {
 			if loggedIn {
 				fmt.Println("> You are already logged in.")
 			} else if len(command) == 3 {
-				loggedIn = login(conn, inputString)
+				loggedIn = login(conn, inputString, command[1])
 			} else {
 				fmt.Println("> You must provided a username and password.")
 			}

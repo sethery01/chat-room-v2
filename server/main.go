@@ -3,7 +3,8 @@
  *	Networks
  *	Chatbot V1
  * 	October 24, 2025
- *	Information used in project from: https://pkg.go.dev/
+ *	Go net library: 	https://pkg.go.dev/net
+ * 	Go sync library: 	https://pkg.go.dev/sync
  *	server/main.go
 ***********************************************************************/
 package main
@@ -15,12 +16,24 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
 
+// TODO:
+// Handle file i/o async DONE
+// Handle multiple users logging in async... i.e. cannot be two sessions of Seth
+
+// GLOBALS
 const (
 	SOCKET       = "127.0.0.1:10740"
 	SIZE_OF_BUFF = 1024
 )
+
+// Global active users map and mutex locks
+var activeUsers = make(map[string]net.Conn)	// Maps usernames to their actual connection
+var userMutex sync.RWMutex					// Read/Write mutex lock for activeUsers
+var fileMutex sync.Mutex					// Mutex for file I/O with users.txt
+
 
 func sendMessage(conn net.Conn, message []byte) {
 	_, err := conn.Write(message)
@@ -30,6 +43,10 @@ func sendMessage(conn net.Conn, message []byte) {
 }
 
 func validateUser(username, password string) bool {
+	// Lock users.txt
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
+	
 	// Open the users file
 	file, err := os.Open("users.txt")
 	if err != nil {
@@ -58,10 +75,29 @@ func validateUser(username, password string) bool {
 	return false
 }
 
-func login(command []string) bool {
+func login(command []string, conn net.Conn) int {
 	username := command[1]
 	password := command[2]
-	return validateUser(username,password)
+
+	// Lock shared activeUsers
+	userMutex.Lock()
+	defer userMutex.Unlock()
+
+	// Check if user is already active
+	_, loggedIn := activeUsers[username]
+	if loggedIn {
+		return 2 	// User already active in chatroom
+	}
+	
+	// Try to login
+	validUser := validateUser(username,password)
+	if !validUser {
+		return 1 	// User doesn't exist
+	}
+
+	// Set active user and return success
+	activeUsers[command[1]] = conn
+	return 0
 }
 
 func newuser(command []string) bool {
@@ -73,6 +109,10 @@ func newuser(command []string) bool {
 		log.Printf("User %s already exists.\n",username)
 		return false
 	} else {
+		// Lock users.txt
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
 		// Open the users file for appending
 		file, err := os.OpenFile("users.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -97,6 +137,7 @@ func handleConnection(conn net.Conn) {
 	log.Println("New connection from: " + conn.RemoteAddr().String())
 	defer conn.Close() // Close connection upon function exit
 	loggedIn := false
+	errorCode := 0
 	activeUser := ""
 
 	for {
@@ -116,13 +157,12 @@ func handleConnection(conn net.Conn) {
 		// Execute the command
 		switch command[0] {
 		case "login":
-			loggedIn = login(command)
-			var message []byte
-			if loggedIn {
-				activeUser = command[1]
-				message = []byte("1")
-			} else {
-				message = []byte("0")
+			errorCode = login(command, conn)
+			message := []byte(fmt.Sprintf("%d", errorCode))
+			if errorCode == 0 {
+				loggedIn = true
+				activeUser = command[1] 
+				log.Printf("New login. Active Users: %v\n", activeUsers)
 			}
 			sendMessage(conn,message)
 		case "newuser":
@@ -145,7 +185,11 @@ func handleConnection(conn net.Conn) {
 			}
 		case "logout":
 			if loggedIn {
+				userMutex.Lock()
+				delete(activeUsers, activeUser)
 				log.Println("Terminating connection: " + conn.RemoteAddr().String())
+				log.Printf("Active Users: %v\n", activeUsers)
+				userMutex.Unlock()
 				return
 			} else {
 				log.Println("User chose logout but nobody is logged in.")
