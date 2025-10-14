@@ -25,14 +25,17 @@ import (
 
 // GLOBALS
 const (
-	SOCKET       = "127.0.0.1:10740"
-	SIZE_OF_BUFF = 1024
+	SOCKET       	= "127.0.0.1:10740"
+	SIZE_OF_BUFF 	= 1024
+	MAX_CLIENTS		= 3
 )
 
-// Global active users map and mutex locks
+// Globals for multithreading and mutex locks
 var activeUsers = make(map[string]net.Conn)	// Maps usernames to their actual connection
+var activeConns int							// Tracks active conns
 var userMutex sync.RWMutex					// Read/Write mutex lock for activeUsers
 var fileMutex sync.Mutex					// Mutex for file I/O with users.txt
+var connMutex sync.Mutex					// Mutex for activeConns int
 
 
 func sendMessage(conn net.Conn, message []byte) {
@@ -134,12 +137,35 @@ func newuser(command []string) bool {
 }
 
 func handleConnection(conn net.Conn) {
-	log.Println("New connection from: " + conn.RemoteAddr().String())
 	defer conn.Close() // Close connection upon function exit
+	
+	// Attempt connection limit check
+	connMutex.Lock()
+	if activeConns >= MAX_CLIENTS {
+		connMutex.Unlock()
+		log.Println("Connection refused from:", conn.RemoteAddr().String())
+		conn.Close()
+		return
+	}
+
+	// Connection allowed!
+	activeConns++
+	log.Printf("New connection from: %s Active connections: %d\n", conn.RemoteAddr().String(), activeConns)
+	connMutex.Unlock()
+
+	// Make sure number of conns is updated after exit
+	defer func() {
+		connMutex.Lock()
+		activeConns--
+		log.Printf("Connection closed. Active connections: %d\n", activeConns)
+		connMutex.Unlock()
+	}()
+
 	loggedIn := false
 	errorCode := 0
 	activeUser := ""
 
+	// Handle accepted connection
 	for {
 		// Read in data sent by the connection
 		buffer := make([]byte, SIZE_OF_BUFF)
