@@ -136,6 +136,10 @@ func newuser(command []string) bool {
 	return true
 }
 
+func sendAll(message []byte) {
+	// START HERE
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close() // Close connection upon function exit
 	
@@ -144,6 +148,7 @@ func handleConnection(conn net.Conn) {
 	if activeConns >= MAX_CLIENTS {
 		connMutex.Unlock()
 		log.Println("Connection refused from:", conn.RemoteAddr().String())
+		sendMessage(conn, []byte("-1"))
 		conn.Close()
 		return
 	}
@@ -152,8 +157,9 @@ func handleConnection(conn net.Conn) {
 	activeConns++
 	log.Printf("New connection from: %s Active connections: %d\n", conn.RemoteAddr().String(), activeConns)
 	connMutex.Unlock()
+	sendMessage(conn, []byte("0"))
 
-	// Make sure number of conns is updated after exit
+	// Make sure number of conns is updated after exit 
 	defer func() {
 		connMutex.Lock()
 		activeConns--
@@ -201,14 +207,19 @@ func handleConnection(conn net.Conn) {
 			}
 			sendMessage(conn,message)
 		case "send":
-			if loggedIn {
-				data = data[5:]
-				message := []byte(fmt.Sprintf("%s: %s",activeUser,data))
-				log.Println(string(message))
-				sendMessage(conn, message)
+			if command[1] == "all" {
+				sendAll([]byte(command[2]))
 			} else {
-				log.Println("User is not logged in.")
+				continue
 			}
+			// if loggedIn {
+			// 	data = data[5:]
+			// 	message := []byte(fmt.Sprintf("%s: %s",activeUser,data))
+			// 	log.Println(string(message))
+			// 	sendMessage(conn, message)
+			// } else {
+			// 	log.Println("User is not logged in.")
+			// }
 		case "logout":
 			if loggedIn {
 				userMutex.Lock()

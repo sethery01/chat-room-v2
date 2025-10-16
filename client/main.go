@@ -45,6 +45,21 @@ func sendAndReceive(conn net.Conn, message []byte) string {
 	return data
 }
 
+func validateConn(conn net.Conn) string {
+	buffer := make([]byte, SIZE_OF_BUFF)
+	bytesRead, err := conn.Read(buffer)
+	if err != nil {
+		log.Println(err)
+		return "-1"
+	}
+
+	// Parse response
+	response := buffer[0:bytesRead]
+	data := string(response)
+
+	return data
+}
+
 func login(conn net.Conn, command string, user string) bool {
 	// // Send the login message
 	message := []byte(command)
@@ -168,8 +183,13 @@ func main() {
 		log.Fatal(err) // This will kill thr program
 	}
 
-	// Run the app
-	start(conn)
+	// Run the app if connection accepted
+	data := validateConn(conn)
+	if data == "0" {
+		start(conn)
+	} else {
+		fmt.Println("Connection refused. Server full.")
+	}
 
 	conn.Close()
 }
