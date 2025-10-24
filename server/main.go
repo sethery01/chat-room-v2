@@ -21,7 +21,7 @@ import (
 
 // TODO:
 // Handle file i/o async DONE
-// Handle multiple users logging in async... i.e. cannot be two sessions of Seth
+// Handle multiple users logging in async... i.e. cannot be two sessions of Seth DONE
 
 // GLOBALS
 const (
@@ -37,6 +37,9 @@ var userMutex sync.RWMutex                  // Read/Write mutex lock for activeU
 var fileMutex sync.Mutex                    // Mutex for file I/O with users.txt
 var connMutex sync.Mutex                    // Mutex for activeConns int
 
+// Sends a message to the client
+// conn is the client to send the message to
+// message is the content to send
 func sendMessage(conn net.Conn, message []byte) {
 	_, err := conn.Write(message)
 	if err != nil {
@@ -44,6 +47,12 @@ func sendMessage(conn net.Conn, message []byte) {
 	}
 }
 
+// Evaluates whether the user is registered and checks password
+// username is the UserID of the account
+// password is the Password
+// newuser is a flag determining whether to attempt login or newuser validation
+// returns true if a user exists already OR  true if username and password correct
+// returns false if user does not exist OR false if username and password incorrect
 func validateUser(username, password string, newuser bool) bool {
 	// Lock users.txt
 	fileMutex.Lock()
@@ -87,6 +96,12 @@ func validateUser(username, password string, newuser bool) bool {
 	return false
 }
 
+// attempts to log the user in
+// command is the parsed input from the client
+// conn is the current client connection
+// returns 0 on success 
+// returns 1 if the user doesn't exist
+// returns 2 if user is already logged into the chatroom
 func login(command []string, conn net.Conn) int {
 	username := command[1]
 	password := command[2]
@@ -112,11 +127,14 @@ func login(command []string, conn net.Conn) int {
 	return 0
 }
 
-// FIX NEWUSER NOT CHECKING RIGHT
+// Determines whether the requested newuser can be added
+// command is the parsed input from the client-side
+// returns true on successful newuser, false otherwise
 func newuser(command []string) bool {
 	username := command[1]
 	password := command[2]
 
+	// Checks if the user exists... if not continue registration
 	userExists := validateUser(username, password, true)
 	if userExists {
 		log.Printf("User %s already exists.\n", username)
@@ -149,10 +167,14 @@ func newuser(command []string) bool {
 			return false
 		}
 	}
+
+	// Success
 	log.Print("User added: " + username)
 	return true
 }
 
+// broadcasts a message to all connected clients
+// message is the content to send
 func sendAll(message []byte) {
 	userMutex.RLock()
 	for username, conn := range activeUsers {
@@ -162,6 +184,13 @@ func sendAll(message []byte) {
 	userMutex.RUnlock()
 }
 
+// Unicast a message to a specified user
+// currentConn is the active conn calling this function
+// message is the content to send 
+// userID is the requested user to send the message to
+// activeUser is the active user calling this function
+// Sends the message to the specified user if they're logged in
+// if not, the calling user is sent an error message
 func sendUserID(currentConn net.Conn, message []byte, userID, activeUser string) {
 	userMutex.RLock()
 	defer userMutex.RUnlock()
@@ -179,6 +208,8 @@ func sendUserID(currentConn net.Conn, message []byte, userID, activeUser string)
 	log.Printf("\"%s\" sent to %s from %s", string(message), userID, activeUser)
 }
 
+// who sends all the clients connected to the chatroom to the calling user
+// conn is the active conn calling this function
 func who(conn net.Conn) {
 	userMutex.RLock()
 	defer userMutex.RUnlock()
@@ -203,6 +234,7 @@ func who(conn net.Conn) {
 	sendMessage(conn, []byte(message))
 }
 
+// The main handle func for connection conn
 func handleConnection(conn net.Conn) {
 	defer conn.Close() // Close connection upon function exit
 
@@ -236,7 +268,7 @@ func handleConnection(conn net.Conn) {
 			userMutex.Lock()
 			delete(activeUsers, activeUser)
 			userMutex.Unlock()
-			log.Printf("%s closed their connected unexpectedly", activeUser)
+			log.Printf("%s closed their connected.", activeUser)
 			sendAll([]byte(fmt.Sprintf("%s left!", activeUser)))
 		}
 	}()
@@ -258,6 +290,7 @@ func handleConnection(conn net.Conn) {
 
 		// Execute the command
 		switch command[0] {
+
 		case "login":
 			errorCode = login(command, conn)
 			message := []byte(fmt.Sprintf("%d", errorCode))
@@ -270,6 +303,7 @@ func handleConnection(conn net.Conn) {
 			if loggedIn {
 				sendAll([]byte(fmt.Sprintf("%s joined!", activeUser)))
 			}
+
 		case "newuser":
 			created := newuser(command)
 			var message []byte
@@ -279,6 +313,7 @@ func handleConnection(conn net.Conn) {
 				message = []byte("0")
 			}
 			sendMessage(conn, message)
+
 		case "send":
 			data := strings.Join(command[2:], " ")
 			message := []byte(fmt.Sprintf("%s: %s", activeUser, data))

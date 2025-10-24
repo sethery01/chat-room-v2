@@ -23,6 +23,10 @@ const (
 	SIZE_OF_BUFF = 1024
 )
 
+// Sends a message to the server and waits for a response
+// message is content to send
+// conn is current connection to server
+// returns the message from the server as a Go string
 func sendAndReceive(conn net.Conn, message []byte) string {
 	_, err := conn.Write(message)
 	if err != nil {
@@ -45,6 +49,9 @@ func sendAndReceive(conn net.Conn, message []byte) string {
 	return data
 }
 
+// Only sends the message to the server
+// conn is current connection
+// message is the content to send
 func sendMessage(conn net.Conn, message []byte) {
 	_, err := conn.Write(message)
 	if err != nil {
@@ -52,6 +59,9 @@ func sendMessage(conn net.Conn, message []byte) {
 	}
 }
 
+// Runs upon connection to the server to check if conn is allowed
+// Returns the response from the server
+// conn is current connection
 func validateConn(conn net.Conn) string {
 	buffer := make([]byte, SIZE_OF_BUFF)
 	bytesRead, err := conn.Read(buffer)
@@ -67,6 +77,10 @@ func validateConn(conn net.Conn) string {
 	return data
 }
 
+// Attempts to log the user in
+// conn is current server connection
+// command is the raw input from the command line to send to the server
+// returns true on success and false on failure
 func login(conn net.Conn, command string, user string) bool {
 	// // Send the login message
 	message := []byte(command)
@@ -75,7 +89,7 @@ func login(conn net.Conn, command string, user string) bool {
 	// Validate login
 	switch data {
 	case "1":
-		fmt.Println("> Login unsuccessful. User: " + user + " doesn't exist.")
+		fmt.Println("> Login unsuccessful. Username or password incorrect.")
 		return false
 	case "2":
 		fmt.Println("> Login unsuccessful. " + user + " is already logged in.")
@@ -86,6 +100,7 @@ func login(conn net.Conn, command string, user string) bool {
 	}
 }
 
+// logout closes connection conn and returns true on success
 func logout(conn net.Conn) bool {
 	// Send the logout message
 	message := []byte("logout")
@@ -97,12 +112,16 @@ func logout(conn net.Conn) bool {
 	return true
 }
 
+// newuser will try and register a newuser on the server
+// conn is the current connection to the server
+// command is the raw from the command line to send to the server
+// returns true upson success and false on failure
 func newuser(conn net.Conn, command string) bool {
 	// Send the newuser message
 	message := []byte(command)
 	data := sendAndReceive(conn, message)
 
-	// Validate login
+	// Validate registration
 	if data != "1" {
 		fmt.Println("> Account creation unsuccessful.")
 		return false
@@ -111,6 +130,9 @@ func newuser(conn net.Conn, command string) bool {
 	return true
 }
 
+// send sends a message to the server and prints the response
+// conn is the current connection to the server
+// command is the raw input from the command line to send to the server
 func send(conn net.Conn, command string) {
 	// Send the message to be echoed to the user
 	message := []byte(command)
@@ -120,11 +142,13 @@ func send(conn net.Conn, command string) {
 	}
 }
 
+// start is the main loop of the client program
+// start listens for commands until the user logs out or hits "control + c"
 func start(conn net.Conn) {
 	fmt.Println("******************************************************************")
 	fmt.Print("Hello! Welcome to Seth Ek's chatbot V2.\n\nAvailable commands:\n")
 	fmt.Print("login \"UserID\" \"Password\"\nnewuser \"UserID\" \"Password\"\nsend all \"message\"\nsend \"UserID\" \"message\"logout\n")
-	fmt.Print("\nPlease enter commands as shown above. You must begin with login.\n")
+	fmt.Print("\nPlease enter commands as shown above. You must begin with login or newuser.\n")
 	fmt.Println("******************************************************************")
 
 	reader := bufio.NewReader(os.Stdin)
@@ -137,6 +161,7 @@ func start(conn net.Conn) {
 		inputString := strings.TrimSpace(input) // Trim whitespace here
 		command := strings.Fields(inputString)  // strings.Fields creates a slice of strings seperated by a space
 
+		// User presses enter
 		if len(command) == 0 {
 			continue
 		}
@@ -144,6 +169,7 @@ func start(conn net.Conn) {
 		// Execute the command
 		switch command[0] {
 		
+		// case login uses the login() func to execute this command
 		case "login":
 			if loggedIn {
 				fmt.Println("> You are already logged in.")
@@ -151,6 +177,7 @@ func start(conn net.Conn) {
 				loggedIn = login(conn, inputString, command[1])
 				if loggedIn {
 					// Goroutine: Listen for server messages continuously
+					// This is needed to get messages from other clients
 					go func() {
 						buffer := make([]byte, SIZE_OF_BUFF)
 						for {
@@ -161,7 +188,7 @@ func start(conn net.Conn) {
 							}
 							message := strings.TrimSpace(string(buffer[:bytesRead]))
 							if message != "" {
-								fmt.Printf("\r> %s\n> ", message)
+								fmt.Printf("\r> %s\n> ", message) // This helps the I/O buffer. Makes it cleaner
 							}
 						}
 					}()
@@ -170,6 +197,7 @@ func start(conn net.Conn) {
 				fmt.Println("> You must provided a username and password.")
 			}
 		
+		// case newuser uses the newuser() func to execute this command
 		case "newuser":
 			if loggedIn {
 				fmt.Println("> Denied. You cannot create a newuser while logged in.")
@@ -183,6 +211,7 @@ func start(conn net.Conn) {
 				newuser(conn, inputString)
 			}
 		
+		// case send uses the send() func to execute this command
 		case "send":
 			if !loggedIn {
 				fmt.Println("> You must login before sending a message.")
@@ -194,9 +223,15 @@ func start(conn net.Conn) {
 				send(conn, inputString)
 			}
 		
+		// case who requests the who func on the server-side
 		case "who":
-			sendMessage(conn, []byte("who"))
+			if loggedIn {
+				sendMessage(conn, []byte("who"))
+			} else {
+				fmt.Println("> Denied. You must be logged in to list users.")
+			}
 		
+		// case logout uses the logout() func to execute this command
 		case "logout":
 			if loggedIn {
 				loggedOut := logout(conn)
@@ -223,6 +258,7 @@ func main() {
 	}
 
 	// Run the app if connection accepted
+	// Can only be three clients connected at a time
 	data := validateConn(conn)
 	if data == "0" {
 		start(conn)
